@@ -20,10 +20,10 @@ class PositionController:
     """
     
     def __init__(self, 
-                 kp: tuple = (1.0, 1.0),
-                 ki: tuple = (0.0, 0.0),
-                 kd: tuple = (0.0, 0.0),
-                 max_velocity: tuple = (5.0, 5.0)):
+                 kp: tuple,
+                 ki: tuple,
+                 kd: tuple,
+                 max_velocity: tuple):
         """
         Args:
             kp: (kp_x, kp_y) - Proportional gains
@@ -77,13 +77,13 @@ class VelocityController:
     GRAVITY = 9.81
     
     def __init__(self,
-                 mass: float = 1.0,
-                 kp: tuple = (2.0, 2.0),
-                 ki: tuple = (0.1, 0.1),
-                 kd: tuple = (0.0, 0.0),
-                 max_acceleration: tuple = (5.0, 5.0),
-                 max_tilt: float = math.pi / 4,
-                 max_thrust: float = 30.0):
+                 mass: float,
+                 kp: tuple,
+                 ki: tuple,
+                 kd: tuple,
+                 max_acceleration: tuple,
+                 max_tilt: float,
+                 max_thrust: float):
         """
         Args:
             mass: Drone mass (kg)
@@ -167,10 +167,10 @@ class AttitudeController:
     """
     
     def __init__(self,
-                 kp: float = 20.0,
-                 ki: float = 0.0,
-                 kd: float = 5.0,
-                 max_torque: float = 5.0):
+                 kp: float,
+                 ki: float,
+                 kd: float,
+                 max_torque: float):
         """
         Args:
             kp: Proportional gain
