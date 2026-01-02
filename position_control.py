@@ -25,51 +25,6 @@ from matplotlib.animation import FuncAnimation
 from simple_model import state_space
 from utils import wrap_angle
 
-
-class PIDController:
-    """Simple PID controller."""
-    
-    def __init__(self, kp: float, ki: float, kd: float, output_limits: tuple = (None, None)):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.output_min, self.output_max = output_limits
-        self.integral = 0.0
-        self.prev_error = 0.0
-        self.first_call = True
-    
-    def reset(self):
-        self.integral = 0.0
-        self.prev_error = 0.0
-        self.first_call = True
-    
-    def compute(self, error: float, dt: float) -> float:
-        # Proportional
-        p_term = self.kp * error
-        
-        # Integral
-        self.integral += error * dt
-        i_term = self.ki * self.integral
-        
-        # Derivative
-        if self.first_call:
-            d_term = 0.0
-            self.first_call = False
-        else:
-            d_term = self.kd * (error - self.prev_error) / dt
-        self.prev_error = error
-        
-        output = p_term + i_term + d_term
-        
-        # Clamp
-        if self.output_min is not None:
-            output = max(self.output_min, output)
-        if self.output_max is not None:
-            output = min(self.output_max, output)
-        
-        return output
-
-
 class PlanarQuadrotor:
     """
     2D Planar Quadrotor with position control.
