@@ -143,6 +143,9 @@ class HierarchicalQuadrotor:
         self._theta_des = 0.0
         self._ax_des = 0.0
         self._ay_des = 0.0
+        # Actual accelerations
+        self._ax = 0.0
+        self._ay = 0.0
         
         # Logging
         self.history = {
@@ -155,8 +158,10 @@ class HierarchicalQuadrotor:
             'vx_des': [], 'vy_des': [],
             # Attitude setpoint (from velocity controller)
             'theta_des': [],
-            # Acceleration commands
+            # Acceleration commands (desired)
             'ax_des': [], 'ay_des': [],
+            # Actual accelerations
+            'ax': [], 'ay': [],
             # Control outputs
             'thrust': [], 'torque': [],
             # Errors at each level
@@ -238,6 +243,10 @@ class HierarchicalQuadrotor:
             self.inertia
         )
         
+        # Store actual accelerations for logging
+        self._ax = state_dots[2]  # vx_dot
+        self._ay = state_dots[3]  # vy_dot
+        
         # Euler integration
         self.states = self.states + np.array(state_dots) * self.dt
         self.states[4] = wrap_angle(self.states[4])  # Wrap theta
@@ -264,9 +273,12 @@ class HierarchicalQuadrotor:
         self.history['vy_des'].append(self._vy_des)
         # Attitude setpoint
         self.history['theta_des'].append(self._theta_des)
-        # Acceleration commands
+        # Acceleration commands (desired)
         self.history['ax_des'].append(self._ax_des)
         self.history['ay_des'].append(self._ay_des)
+        # Actual accelerations
+        self.history['ax'].append(self._ax)
+        self.history['ay'].append(self._ay)
         # Control outputs
         self.history['thrust'].append(thrust)
         self.history['torque'].append(torque)
@@ -524,7 +536,7 @@ class HierarchicalQuadrotor:
     
     def plot_control_cascade(self):
         """Plot the cascade control signals to visualize hierarchy."""
-        fig, axes = plt.subplots(3, 1, figsize=(12, 10))
+        fig, axes = plt.subplots(4, 1, figsize=(12, 12))
         mode_str = "Position Control" if self.control_mode == 'position' else "Velocity Control"
         fig.suptitle(f'Control Cascade Visualization ({mode_str})', fontsize=14, fontweight='bold')
         
@@ -543,29 +555,42 @@ class HierarchicalQuadrotor:
         ax1.legend()
         ax1.grid(True)
         
-        # Level 2: Velocity -> Attitude + Thrust
+        # Acceleration: Desired vs Actual
         ax2 = axes[1]
-        ax2.set_title('Level 2: Velocity Controller Output (Thrust & Attitude Setpoint)')
-        ax2_twin = ax2.twinx()
-        l1, = ax2.plot(self.history['time'], self.history['thrust'], 'g-', label='Thrust', linewidth=2)
-        l2, = ax2_twin.plot(self.history['time'], np.rad2deg(self.history['theta_des']), 
-                           'm-', label='θ_des', linewidth=2)
+        ax2.set_title('Acceleration: Desired vs Actual')
+        ax2.plot(self.history['time'], self.history['ax_des'], 'b-', label='ax_des', linewidth=2)
+        ax2.plot(self.history['time'], self.history['ay_des'], 'r-', label='ay_des', linewidth=2)
+        ax2.plot(self.history['time'], self.history['ax'], 'b--', alpha=0.5, label='ax (actual)')
+        ax2.plot(self.history['time'], self.history['ay'], 'r--', alpha=0.5, label='ay (actual)')
+        ax2.axhline(y=0, color='k', linestyle=':', linewidth=0.5)
         ax2.set_xlabel('Time (s)')
-        ax2.set_ylabel('Thrust (N)', color='g')
-        ax2_twin.set_ylabel('θ_des (deg)', color='m')
-        ax2.legend(handles=[l1, l2], loc='upper right')
+        ax2.set_ylabel('Acceleration (m/s²)')
+        ax2.legend()
         ax2.grid(True)
         
-        # Level 3: Attitude -> Torque
+        # Level 2: Velocity -> Attitude + Thrust
         ax3 = axes[2]
-        ax3.set_title('Level 3: Attitude Controller Output (Torque)')
-        ax3.plot(self.history['time'], self.history['torque'], 'b-', label='Torque', linewidth=2)
-        ax3.plot(self.history['time'], np.rad2deg(self.history['theta_error']), 
-                'r--', alpha=0.5, label='θ_error (deg)')
+        ax3.set_title('Level 2: Velocity Controller Output (Thrust & Attitude Setpoint)')
+        ax3_twin = ax3.twinx()
+        l1, = ax3.plot(self.history['time'], self.history['thrust'], 'g-', label='Thrust', linewidth=2)
+        l2, = ax3_twin.plot(self.history['time'], np.rad2deg(self.history['theta_des']), 
+                           'm-', label='θ_des', linewidth=2)
         ax3.set_xlabel('Time (s)')
-        ax3.set_ylabel('Torque (Nm) / Error (deg)')
-        ax3.legend()
+        ax3.set_ylabel('Thrust (N)', color='g')
+        ax3_twin.set_ylabel('θ_des (deg)', color='m')
+        ax3.legend(handles=[l1, l2], loc='upper right')
         ax3.grid(True)
+        
+        # Level 3: Attitude -> Torque
+        ax4 = axes[3]
+        ax4.set_title('Level 3: Attitude Controller Output (Torque)')
+        ax4.plot(self.history['time'], self.history['torque'], 'b-', label='Torque', linewidth=2)
+        ax4.plot(self.history['time'], np.rad2deg(self.history['theta_error']), 
+                'r--', alpha=0.5, label='θ_error (deg)')
+        ax4.set_xlabel('Time (s)')
+        ax4.set_ylabel('Torque (Nm) / Error (deg)')
+        ax4.legend()
+        ax4.grid(True)
         
         plt.tight_layout()
         plt.show()
@@ -587,16 +612,16 @@ def create_drone(control_mode: str = 'position') -> HierarchicalQuadrotor:
         pos_kd=(0.0, 0.0),
         max_velocity=(4.0, 4.0),
         # Velocity controller (middle loop) - medium response
-        vel_kp=(3.0, 3.0),
-        vel_ki=(0.2, 0.2),
-        vel_kd=(0.1, 0.1),
-        max_acceleration=(6.0, 6.0),
+        vel_kp=(10.0, 10.0),
+        vel_ki=(0.8, 0.8),
+        vel_kd=(0.7, 0.7),
+        max_acceleration=(60.0, 60.0),
         # Attitude controller (inner loop) - fastest response
         att_kp=30.0,
         att_ki=0.5,
         att_kd=8.0,
         # Limits
-        max_tilt=math.pi / 4,
+        max_tilt=math.pi,
         max_thrust=25.0,
         max_torque=5.0,
         # Mode
